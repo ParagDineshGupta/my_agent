@@ -1,7 +1,9 @@
+# like packege.json: holds project metadata and dependecies.
+
 [project]
 name = "my-agent"
 version = "0.1.0"
-description = "Add your description here"
+description = "TODO: Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
