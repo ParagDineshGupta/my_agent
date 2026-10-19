@@ -1,2 +1,3 @@
 def main() -> None:
-    print("Hello from my-agent!")
+    from my_agent.agent import main as agent_main
+    agent_main()

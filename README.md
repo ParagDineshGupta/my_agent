@@ -42,9 +42,20 @@ Or call the package entry point through Python:
 uv run python -c 'from my_agent import main; main()'
 ```
 
-Both currently print `Hello from my-agent!`.
+Both run the agent's example and print its response.
 
 ## Configuration
+
+The demo agent uses the OpenAI `gpt-4o-mini` model and requires an OpenAI API
+key. Add it to a `.env` file in the project root:
+
+```dotenv
+OPENAI_API_KEY=your-api-key
+```
+
+The key is loaded when the agent runs; do not commit `.env` or share your API
+key. Running `uv run my-agent` (or the Python entry-point example above) sends
+the example word-count request to the model.
 
 ## Development
 

@@ -1,0 +1,9 @@
+Structured output: https://docs.langchain.com/oss/python/langchain/structured-output
+
+Checkpointer: Storage that saves the conversation state so the agent remembers earlier turns.
+Short-term memory: https://docs.langchain.com/oss/python/langchain/short-term-memory
+
+Thread ID: A label that groups messages into one conversation.
+
+Middleware: Code that runs before or after model and tool calls to add rules like limits or retries.
+Middleware: https://docs.langchain.com/oss/python/langchain/middleware
