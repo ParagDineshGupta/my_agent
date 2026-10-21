@@ -1,10 +1,12 @@
 import os
 import sys
+
 from dotenv import load_dotenv
-
-
 from langchain.chat_models import init_chat_model
+from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
+
 from my_agent.tools import web_search
 
 load_dotenv()
@@ -13,6 +15,19 @@ SYSTEM_PROMPT = (
     ""
     "Be concise and say which tool you used."
 )
+
+
+class ToolCallLogger(BaseCallbackHandler):
+    def on_tool_start(self, serialized, input_str, **kwargs):
+        name = serialized.get("name", "tool")
+        print(f"\n[tool call] {name}: {input_str}")
+
+    def on_tool_end(self, output, **kwargs):
+        print(f"[tool result] {output}")
+
+    def on_tool_error(self, error, **kwargs):
+        print(f"[tool error] {error}")
+
 
 def build_agent():
     """Create the agent: a model + tools + instructions."""
@@ -27,13 +42,25 @@ def build_agent():
      )
     return create_agent(MODEL, tools=[web_search], system_prompt=SYSTEM_PROMPT, checkpointer=InMemorySaver())
 
-def run_agent(user_message: str, agent=build_agent(), config={}) -> str:
+def run_agent(
+    user_message: str, agent=None, config: RunnableConfig | None = None
+) -> str:
     """Run the agent with a simple message."""
+    if agent is None:
+        agent = build_agent()
+    run_config: RunnableConfig = {**(config or {})}
+    callbacks = run_config.get("callbacks")
+    if callbacks is None:
+        run_config["callbacks"] = [ToolCallLogger()]
+    elif isinstance(callbacks, list):
+        run_config["callbacks"] = [*callbacks, ToolCallLogger()]
+    else:
+        callbacks.add_handler(ToolCallLogger())
     result = agent.invoke(
         {
             "messages": [{"role": "user", "content": user_message}],  # only the new message
         },
-        config=config,
+        config=run_config,
     )
     return result["messages"][-1].content
 

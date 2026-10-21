@@ -9,6 +9,7 @@ requires-python = ">=3.13"
 dependencies = [
     "langchain>=1.4.6",
     "langchain-openai>=1.7.2",
+    "langsmith[openai-agents]>=0.14.11",
     "python-dotenv>=1.2.4",
     "tavily>=1.1.0",
 ]
