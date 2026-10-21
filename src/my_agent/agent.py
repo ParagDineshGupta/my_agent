@@ -24,32 +24,29 @@ def build_agent():
          MODEL_NAME,
          temperature=0,
          max_tokens=500,
-         checkpointer = InMemorySaver(),
      )
-    return create_agent(MODEL, tools=[web_search], system_prompt=SYSTEM_PROMPT)
+    return create_agent(MODEL, tools=[web_search], system_prompt=SYSTEM_PROMPT, checkpointer=InMemorySaver())
 
-
-
-def run_agent(user_message: str, history: list= [], agent=build_agent(), config={}) -> str:
-    """Run the agent with a simple example."""
-    messages = history
-    messages.append({"role": "user", "content": user_message})
+def run_agent(user_message: str, agent=build_agent(), config={}) -> str:
+    """Run the agent with a simple message."""
     result = agent.invoke(
         {
-            "messages": messages,
+            "messages": [{"role": "user", "content": user_message}],  # only the new message
         },
-        # config=config,
+        config=config,
     )
-    messages[:] = result["messages"]  # Replaces the contents fully, so history is updated in place.
     return result["messages"][-1].content
 
+def get_thread_messages(agent, thread_id: str) -> list:
+    state = agent.get_state({"configurable": {"thread_id": thread_id}})
+    return state.values.get("messages", [])
 
 def main() -> None:
     if not os.getenv("OPENAI_API_KEY"):
         sys.exit("Set OPENAI_API_KEY first (see README).")
     print("Agent ready. Type 'quit' to exit.")
     agent = build_agent()
-    history: list = []
+    # history: list = []
     while True:
         try:
             text = input("\nyou> ").strip()
@@ -58,10 +55,11 @@ def main() -> None:
         if text.lower() in {"quit", "exit"}:
             break
         if text:
-            configurable = {"thread_id": "1"}
-            print("\nagent>", run_agent(text, history, agent, config={"configurable": configurable}))
+            configurable = {"thread_id": "cli-session"}
+            print("\nagent>", run_agent(text, agent, config={"configurable": configurable}))
             print("\n---")
-            print("History:", history)
+            # print("History:", history)
+    print("\nThread Messages:", get_thread_messages(agent, "cli-session"))  # for debugging
 
 # __name__: a built-in variable holding the name of the current module.
 if __name__ == "__main__":
