@@ -5,16 +5,26 @@ from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.runnables import RunnableConfig
+from langgraph.types import Command
 from langgraph.checkpoint.memory import InMemorySaver
-from langchain.agents.middleware import ToolCallLimitMiddleware, SummarizationMiddleware
+from langchain.agents.middleware import (
+    ToolCallLimitMiddleware,
+    SummarizationMiddleware,
+    HumanInTheLoopMiddleware,
+)
 
-from my_agent.tools import web_search
+from my_agent.tools import web_search, save_answer_to_file
 
 load_dotenv()
 SYSTEM_PROMPT = (
     "You are a helpful assistant. Use tools when they help: "
     ""
     "Be concise and say which tool you used."
+    "Save final answer to a file using the save_answer_to_file tool."
+    "Answer from your own knowledge when you can. "
+    "Use web_search only for recent or unknown information. "
+    "If the user asks to save an answer, call save_answer_to_file "
+    "with your previous answer. Never search for that request."
 )
 
 
@@ -43,7 +53,7 @@ def build_agent():
     )
     return create_agent(
         MODEL,
-        tools=[web_search],
+        tools=[web_search, save_answer_to_file],
         system_prompt=SYSTEM_PROMPT,
         checkpointer=InMemorySaver(),
         middleware=[
@@ -53,8 +63,15 @@ def build_agent():
                 trigger=("tokens", 100),
                 keep=("messages", 2),
             ),
+            HumanInTheLoopMiddleware(  # state saved by the checkpointer
+                interrupt_on={
+                    "web_search": False,
+                    "save_answer_to_file": True,
+                },
+                description_prefix="Tool execution requires approval",
+            ),
         ],
-    )
+    )  # type: ignore
 
 
 def run_agent(
@@ -63,6 +80,7 @@ def run_agent(
     """Run the agent with a simple message."""
     if agent is None:
         agent = build_agent()
+
     run_config: RunnableConfig = {**(config or {})}
     callbacks = run_config.get("callbacks")
     if callbacks is None:
@@ -71,6 +89,7 @@ def run_agent(
         run_config["callbacks"] = [*callbacks, ToolCallLogger()]
     else:
         callbacks.add_handler(ToolCallLogger())
+
     result = agent.invoke(
         {
             "messages": [
@@ -79,6 +98,27 @@ def run_agent(
         },
         config=run_config,
     )
+
+    # Keep resuming until the agent is no longer paused
+    while "__interrupt__" in result:
+        print(result["__interrupt__"])
+
+        print(
+            "Do you approve the tool execution / save this answer? (type 'approve' or 'reject')"
+        )
+
+        choice = input("approve / reject: ").strip().lower()
+
+        if choice == "approve":
+            decision = {"type": "approve", "user_question": "this is a user_question"}
+        else:
+            decision = {"type": "reject", "message": "User rejected saving."}
+
+        result = agent.invoke(
+            Command(resume={"decisions": [decision]}),
+            config=config,  # same thread_id
+        )
+
     return result["messages"][-1].content
 
 
