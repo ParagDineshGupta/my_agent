@@ -7,3 +7,12 @@ Thread ID: A label that groups messages into one conversation.
 
 Middleware: Code that runs before or after model and tool calls to add rules like limits or retries.
 Middleware: https://docs.langchain.com/oss/python/langchain/middleware
+
+***
+SummarizationMiddleware:
+uses the before_model hook.
+The agent loop calls the model more than once per user request. Each time a tool result comes back, the model is called again. So the check runs before every model call, whether the new message came from the user or from a tool.
+trigger: the condition that starts summarization. when to start summarizing.
+keep: how much recent history to leave untouched. example: last 20 messages.
+model: the model used to write the summary. A cheaper, smaller one works well here.
+***
