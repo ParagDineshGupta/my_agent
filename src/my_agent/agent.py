@@ -14,6 +14,8 @@ from langchain.agents.middleware import (
 )
 
 from my_agent.tools import web_search, save_answer_to_file
+from dataclasses import dataclass
+
 
 load_dotenv()
 SYSTEM_PROMPT = (
@@ -27,6 +29,12 @@ SYSTEM_PROMPT = (
     "with your previous answer. Never search for that request."
 )
 
+
+  # global values are shared across all runs. Context is isolated per run.
+@dataclass
+class Context:
+    """Context schema for the agent's state."""
+    user_question: str = ""
 
 class ToolCallLogger(BaseCallbackHandler):
     def on_tool_start(self, serialized, input_str, **kwargs):
@@ -71,6 +79,8 @@ def build_agent():
                 description_prefix="Tool execution requires approval",
             ),
         ],
+        context_schema=Context,          # declare the shape
+        # context_validator=ContextValidator()  # validate the shape
     )  # type: ignore
 
 
@@ -102,7 +112,6 @@ def run_agent(
     # Keep resuming until the agent is no longer paused
     while "__interrupt__" in result:
         print(result["__interrupt__"])
-
         print(
             "Do you approve the tool execution / save this answer? (type 'approve' or 'reject')"
         )
@@ -110,13 +119,14 @@ def run_agent(
         choice = input("approve / reject: ").strip().lower()
 
         if choice == "approve":
-            decision = {"type": "approve", "user_question": "this is a user_question"}
+            decision = {"type": "approve"}
         else:
             decision = {"type": "reject", "message": "User rejected saving."}
 
         result = agent.invoke(
             Command(resume={"decisions": [decision]}),
             config=config,  # same thread_id
+            context={"user_question": user_message},
         )
 
     return result["messages"][-1].content

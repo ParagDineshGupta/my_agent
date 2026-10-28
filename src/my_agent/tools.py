@@ -1,6 +1,6 @@
 from typing import Dict, Any
 from tavily import TavilyClient
-from langchain.tools import tool
+from langchain.tools import tool, ToolRuntime
 from dotenv import load_dotenv
 import readline  # enables arrow keys, history, and line editing
 
@@ -24,12 +24,15 @@ web_search.description = (
 
 @tool
 def save_answer_to_file(
-    answer: str, user_question: str, filename: str = "answer.txt"
+    answer: str,
+    runtime: ToolRuntime,
 ) -> str:
     """Save text to a local file. Use this whenever the user says
     'save', 'write to file', or 'export'. Pass the PREVIOUS assistant
     answer in `answer`. Do not search the web for this."""
 
+    filename = "answer.txt"
+
     with open(filename, "w") as f:
-        f.write(f"Question: {user_question}\nAnswer: {answer}")
+        f.write(f"Question: {runtime.context.user_question}\nAnswer: {answer}")
     return f"Answer saved to {filename}"
