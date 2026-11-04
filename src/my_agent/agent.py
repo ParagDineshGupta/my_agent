@@ -12,8 +12,10 @@ from langchain.agents.middleware import (
     SummarizationMiddleware,
     HumanInTheLoopMiddleware,
 )
+from my_agent.middlewares import handle_tool_errors
 
-from my_agent.tools import web_search, save_answer_to_file, read_previous_question, update_previous_question
+
+from my_agent.tools import web_search, save_answer_to_file, read_previous_question, update_previous_question, broken_tool
 from dataclasses import dataclass
 
 
@@ -27,6 +29,11 @@ SYSTEM_PROMPT = (
     "Use web_search only for recent or unknown information. "
     "If the user asks to save an answer, call save_answer_to_file "
     "with your previous answer. Never search for that request."
+    "If the user asks to send a message, call send_message."
+    "If the user asks to read the previous question, call read_previous_question."
+    "If the user asks to update the previous question, call update_previous_question."
+    "If a tool fails, return the error message to the user use the handle_tool_errors middleware to catch tool errors and return a message instead of crashing."
+    "If the user explicitly asks you to call a named tool, call it. Never claim a tool was called unless you received its result."
 )
 
 
@@ -66,10 +73,11 @@ def build_agent():
     )
     return create_agent(
         MODEL,
-        tools=[web_search, save_answer_to_file, read_previous_question, update_previous_question],
+        tools=[web_search, save_answer_to_file, read_previous_question, update_previous_question,broken_tool],
         system_prompt=SYSTEM_PROMPT,
         checkpointer=InMemorySaver(),
         middleware=[
+            handle_tool_errors,  # catch tool errors and return a message instead of crashing
             ToolCallLimitMiddleware(thread_limit=30, run_limit=2),
             SummarizationMiddleware(
                 model="gpt-5.4-mini",

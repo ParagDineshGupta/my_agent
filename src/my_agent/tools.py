@@ -31,12 +31,20 @@ def save_answer_to_file(
     """Save text to a local file. Use this whenever the user says
     'save', 'write to file', or 'export'. Pass the PREVIOUS assistant
     answer in `answer`. Do not search the web for this."""
-
+    if not answer:
+        raise ValueError("No answer provided to save. Please provide the previous answer.")
     filename = "answer.txt"
 
     with open(filename, "w") as f:
         f.write(f"Question: {runtime.context.user_question}\nAnswer: {answer}")
     return f"Answer saved to {filename}"
+
+
+@tool
+def send_message(runtime: ToolRuntime) -> str:
+    """Send a message to the user."""
+    # raise NotImplementedError("This tool is not implemented yet. Please implement the send_message tool.")
+    raise RuntimeError("connection error: unable to send message. Please check your network connection and try again.")
 
 
 @tool
@@ -63,3 +71,9 @@ def update_previous_question(question: str, runtime: ToolRuntime) -> Command:
             ],
         }
     )
+
+
+@tool
+def broken_tool(x: str) -> str:
+    """Always fails."""
+    raise ValueError("boom")
