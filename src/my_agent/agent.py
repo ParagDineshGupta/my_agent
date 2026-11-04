@@ -13,7 +13,7 @@ from langchain.agents.middleware import (
     HumanInTheLoopMiddleware,
 )
 
-from my_agent.tools import web_search, save_answer_to_file
+from my_agent.tools import web_search, save_answer_to_file, read_previous_question, update_previous_question
 from dataclasses import dataclass
 
 
@@ -30,12 +30,17 @@ SYSTEM_PROMPT = (
 )
 
 
-  # global values are shared across all runs. Context is isolated per run.
+  # global values are shared across all runs. Context is isolated per run and immutable.
 @dataclass
 class Context:
     """Context schema for the agent's state."""
     user_question: str = ""
 
+from langchain.agents import AgentState
+
+class CustomState(AgentState): # cant set default value
+    current_question: str = ""
+    previous_question: str = ""
 class ToolCallLogger(BaseCallbackHandler):
     def on_tool_start(self, serialized, input_str, **kwargs):
         name = serialized.get("name", "tool")
@@ -61,7 +66,7 @@ def build_agent():
     )
     return create_agent(
         MODEL,
-        tools=[web_search, save_answer_to_file],
+        tools=[web_search, save_answer_to_file, read_previous_question, update_previous_question],
         system_prompt=SYSTEM_PROMPT,
         checkpointer=InMemorySaver(),
         middleware=[
@@ -74,12 +79,12 @@ def build_agent():
             HumanInTheLoopMiddleware(  # state saved by the checkpointer
                 interrupt_on={
                     "web_search": False,
-                    "save_answer_to_file": True,
-                },
+                    "save_answer_to_file": True                },
                 description_prefix="Tool execution requires approval",
             ),
         ],
-        context_schema=Context,          # declare the shape
+        context_schema=Context,
+        state_schema=CustomState,        # declare the shape
         # context_validator=ContextValidator()  # validate the shape
     )  # type: ignore
 
