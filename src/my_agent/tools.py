@@ -1,3 +1,5 @@
+# https://docs.langchain.com/oss/python/integrations/tools
+
 from typing import Dict, Any
 from tavily import TavilyClient
 from langchain.tools import tool, ToolRuntime
@@ -8,14 +10,19 @@ from langchain.messages import ToolMessage
 
 load_dotenv()
 
+
 tavily_client = TavilyClient()
+# Tool schema: Each tool is a function with a description. The description is used to generate the prompt for the agent. The input and output types are inferred from the function signature. The agent can call the tool by name and pass the required arguments. The tool can return a value or raise an exception. The agent can handle exceptions and return an error message to the user.
+
+# tools and tokens: every tools added to the agent consumes tokens. The more tools you add, the more tokens are consumed. The more tokens consumed, the more expensive the agent becomes. Use only the tools you need.
+
 
 @tool
 def web_search(query: str) -> Dict[str, Any]:
     """Search the web ONLY for current or unknown facts.
     Do NOT use this when the user asks to save, write, or export something. We want to use it only for searching the web for information when really needed to minimize the number of web searches. The input should be a search query string."""
 
-    return tavily_client.search(query)
+    return tavily_client.search(query=query, num_results=3, search_depth="advanced")  # returns a dict with search results
 
 
 web_search.description = (

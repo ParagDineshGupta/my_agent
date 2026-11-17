@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.runnables import RunnableConfig
+from langchain.messages import SystemMessage, ToolMessage
 from langgraph.types import Command
 from langgraph.checkpoint.memory import InMemorySaver
 from langchain.agents.middleware import (
@@ -36,7 +37,7 @@ SYSTEM_PROMPT = (
     "If the user explicitly asks you to call a named tool, call it. Never claim a tool was called unless you received its result."
 )
 
-
+system_message = SystemMessage(content=SYSTEM_PROMPT)
   # global values are shared across all runs. Context is isolated per run and immutable.
 @dataclass
 class Context:
@@ -66,13 +67,14 @@ def build_agent():
     # from .tools_lc import TOOLS
 
     MODEL_NAME = os.getenv("AGENT_MODEL", "openai:gpt-4o-mini")  # "provider:model-name"
-    MODEL = init_chat_model(
+    # common interface for all models, but some models have extra features, use specific Model SDK like OpenAIChatModel for OpenAI models to access those features.
+    model = init_chat_model(
         MODEL_NAME,
-        temperature=0,
-        max_tokens=500,
+        temperature=0.1, # deterministic, decides randomness of the model's output. 0 is deterministic, 1 is random. 0 to 1.0/2.0
+        max_tokens=200, # Maximum number of output tokens
     )
     return create_agent(
-        MODEL,
+        model,
         tools=[web_search, save_answer_to_file, read_previous_question, update_previous_question,broken_tool],
         system_prompt=SYSTEM_PROMPT,
         checkpointer=InMemorySaver(),
@@ -115,9 +117,10 @@ def run_agent(
 
     result = agent.invoke(
         {
-            "messages": [
+            "messages": [ # structured input for Multi-turn conversations.
                 {"role": "user", "content": user_message}
             ],  # only the new message
+            # "messages": [UserMessage(user_message)],
         },
         config=run_config,
     )
@@ -142,6 +145,18 @@ def run_agent(
             context={"user_question": user_message},
         )
 
+    total_in = total_out = 0
+
+    for msg in result["messages"]:
+        msg.pretty_print()
+        if msg.type == "ai" and msg.usage_metadata:
+            u = msg.usage_metadata
+            print(f"input={u['input_tokens']}, output={u['output_tokens']}, total={u['total_tokens']}")
+            total_in += u["input_tokens"]
+            total_out += u["output_tokens"]
+
+    print(f"\nBilled usage -> input: {total_in}, output: {total_out}, total: {total_in + total_out}")
+
     return result["messages"][-1].content
 
 
@@ -155,6 +170,7 @@ def main() -> None:
         sys.exit("Set OPENAI_API_KEY first (see README).")
     print("Agent ready. Type 'quit' to exit.")
     agent = build_agent()
+    print(agent.get_graph().draw_mermaid())
     # history: list = []
     while True:
         try:
